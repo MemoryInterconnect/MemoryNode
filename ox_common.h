@@ -6,8 +6,9 @@
 #define RECV_BUFFER_SIZE	2048
 
 
-#define OX_START_ADDR	0x0
-#define OX_ETHERTYPE	0xAAAA
+#define OX_START_ADDR		0x0
+#define OX_ETHERTYPE		0xAAAA
+#define OX_ETHERTYPE_LOW	0xaaaa
 
 #define NORMAL			0
 #define ACK_ONLY		1

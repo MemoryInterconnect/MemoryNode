@@ -234,6 +234,7 @@ int packet_to_ox_struct(char * recv_buffer, int recv_size, struct ox_packet_stru
 	int tl_msg_full_count_by_8bytes = 0;
 	struct eth_header *recv_packet_eth_hdr;
 	struct tloe_header *recv_packet_tloe_hdr;
+    int i;
 
 	struct tl_msg_header_chan_AD __tl_msg_hdr = {0, };
 	uint64_t temp_tl_msg_hdr = *(uint64_t*)(recv_buffer + sizeof(struct eth_header) + sizeof(struct tloe_header));
@@ -254,7 +255,11 @@ int packet_to_ox_struct(char * recv_buffer, int recv_size, struct ox_packet_stru
 	ox_p->flit_cnt = tl_msg_full_count_by_8bytes;
 
 	// just pass the pointer of receive buffer
-	ox_p->flits = (uint64_t *)(recv_buffer + sizeof(struct eth_header) + sizeof(struct tloe_header));
+	for (i = 0; i< tl_msg_full_count_by_8bytes; i++) {
+		uint64_t tmp_flits = be64toh(*(uint64_t*)(recv_buffer + sizeof(struct eth_header) + sizeof(struct tloe_header) + sizeof(uint64_t)*i));
+
+		memcpy(&(ox_p->flits[i]), &tmp_flits, sizeof(uint64_t));
+	}
 
 	// TLoE frame mask (8 bytes)
 	memcpy(&tl_msg_mask, recv_buffer + recv_size - sizeof(tl_msg_mask), sizeof(tl_msg_mask));	

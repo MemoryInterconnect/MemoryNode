@@ -156,7 +156,8 @@ int handle_normal_packet(int sockfd, int connection_id, struct ox_packet_struct 
 		if ( (mask & 1) == 1) {
 
 			//convert TL message header as struct
-			be64_temp = be64toh(recv_ox_p->flits[i]);
+			//be64_temp = be64toh(recv_ox_p->flits[i]);
+			be64_temp = recv_ox_p->flits[i];
 			memcpy(&(tl_msg_header), &be64_temp, sizeof(uint64_t));
 
 			switch (tl_msg_header.chan) {
@@ -235,9 +236,9 @@ PRINT_LINE("tl_addr=%lx data_size=%d data=%lx\n", tl_addr, data_size, send_ox_p.
 					// 5. build OX packet with ox_struct and flits
 					ox_struct_to_packet(&send_ox_p, send_buffer, &send_buffer_size);
 #if 0
-                                        printf("----------------   SEND   ----------------\n");
-                                        print_payload(send_buffer, send_buffer_size);
-                                        printf("------------------------------------------\n\n");
+                    printf("----------------   SEND   ----------------\n");
+                    print_payload(send_buffer, send_buffer_size);
+                    printf("------------------------------------------\n\n");
 #endif
  
 					// 6. Send AccessAckData packet
@@ -331,10 +332,10 @@ int main(int argc, char ** argv)
 		// Checking whether the packet is omnixtend one
 		if ( recv_size > 0 ) {
 			struct ethhdr *etherHeader = (struct ethhdr *) recv_buffer;
-			if (etherHeader->h_proto != OX_ETHERTYPE)
+			if (etherHeader->h_proto == OX_ETHERTYPE || etherHeader->h_proto == OX_ETHERTYPE_LOW)
+				printf("(DEBUG) Ethe_type (AAAA) packet received.\n");
+			else
 				continue;
-		} else {
-			printf("received!!\n");
 		}
 #if 0
 		printf("---------------- RECEIVED ----------------\n");
@@ -343,7 +344,9 @@ int main(int argc, char ** argv)
 #endif
 			
 		// Reconstruct packet into a struct
-		packet_to_ox_struct(recv_buffer, recv_size, &ox_p);
+		// TODO : to-be modified
+		//packet_to_ox_struct(recv_buffer, recv_size, &ox_p);
+		packet_to_ox_struct(recv_buffer, recv_size - 2, &ox_p);
 
 #if SIM
 		// Check Omnixtend message type from message_type field (OX 1.1)
