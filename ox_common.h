@@ -2,11 +2,11 @@
 #define __OMEM_H__
 
 #define NUM_CONNECTION	4				// Maximum number of connection
-#define MEM_SIZE		(8ULL * 1024 * 1024 * 1024)	// 8GB
+#define MEM_SIZE		(4ULL * 1024 * 1024 * 1024)	// 8GB
 #define RECV_BUFFER_SIZE	2048
 
 
-#define OX_START_ADDR		0x0
+#define OX_START_ADDR		0x100000000
 #define OX_ETHERTYPE		0xAAAA
 #define OX_ETHERTYPE_LOW	0xaaaa
 

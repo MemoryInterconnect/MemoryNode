@@ -239,7 +239,6 @@ int packet_to_ox_struct(char * recv_buffer, int recv_size, struct ox_packet_stru
 	struct tl_msg_header_chan_AD __tl_msg_hdr = {0, };
 	uint64_t temp_tl_msg_hdr = *(uint64_t*)(recv_buffer + sizeof(struct eth_header) + sizeof(struct tloe_header));
 	*(uint64_t*)&__tl_msg_hdr = be64toh(temp_tl_msg_hdr);
-
 	// Ethernet MAC header (14 bytes)
     	recv_packet_eth_hdr = (struct eth_header *)recv_buffer;
 	
@@ -256,7 +255,7 @@ int packet_to_ox_struct(char * recv_buffer, int recv_size, struct ox_packet_stru
 
 	// just pass the pointer of receive buffer
 	for (i = 0; i< tl_msg_full_count_by_8bytes; i++) {
-		uint64_t tmp_flits = be64toh(*(uint64_t*)(recv_buffer + sizeof(struct eth_header) + sizeof(struct tloe_header) + sizeof(uint64_t)*i));
+		uint64_t tmp_flits = *(uint64_t*)(recv_buffer + sizeof(struct eth_header) + sizeof(struct tloe_header) + sizeof(uint64_t)*i);
 
 		memcpy(&(ox_p->flits[i]), &tmp_flits, sizeof(uint64_t));
 	}

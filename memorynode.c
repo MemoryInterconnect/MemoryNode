@@ -113,6 +113,21 @@ void write_data(uint64_t tl_addr, uint32_t data_size, void * data) {
 
 	mem_offset = (tl_addr - OX_START_ADDR) % MEM_SIZE;
 	memcpy(mem_storage + mem_offset, data, data_size);
+/*
+	printf("Write Data : addr-0x%llx, ", (unsigned long long)tl_addr); 
+    
+    if (data_size == 1) {
+        printf("data-%u\n", *(uint8_t *)data);
+    } else if (data_size == 2) {
+        printf("data-%u\n", *(uint16_t *)data);
+    } else if (data_size == 4) {
+        printf("data-%u\n", *(uint32_t *)data);
+    } else if (data_size == 8) {
+        printf("data-%lu\n", (unsigned long)*(uint64_t *)data);
+    } else {
+        printf("data-[unknown size]\n");
+    }
+*/
 }
 
 /**
@@ -123,6 +138,23 @@ void read_data(uint64_t tl_addr, uint32_t data_size, void * data) {
 
 	mem_offset = (tl_addr - OX_START_ADDR) % MEM_SIZE;
 	memcpy(data, mem_storage + mem_offset, data_size);
+/*
+	printf("Read Data : addr-0x%llx, size-%d ", (unsigned long long)tl_addr, data_size); 
+
+	//printf(" size-%d, ", data_size);
+
+    if (data_size == 1) {
+        printf("data-%u\n", *(uint8_t *)data);
+    } else if (data_size == 2) {
+        printf("data-%u\n", *(uint16_t *)data);
+    } else if (data_size == 4) {
+        printf("data-%u\n", *(uint32_t *)data);
+    } else if (data_size == 8) {
+        printf("data-%lu\n", (unsigned long)*(uint64_t *)data);
+    } else {
+        printf("data-[unknown size]\n");
+    }
+*/
 }
 
 /**
@@ -156,8 +188,7 @@ int handle_normal_packet(int sockfd, int connection_id, struct ox_packet_struct 
 		if ( (mask & 1) == 1) {
 
 			//convert TL message header as struct
-			//be64_temp = be64toh(recv_ox_p->flits[i]);
-			be64_temp = recv_ox_p->flits[i];
+			be64_temp = be64toh(recv_ox_p->flits[i]);
 			memcpy(&(tl_msg_header), &be64_temp, sizeof(uint64_t));
 
 			switch (tl_msg_header.chan) {
@@ -243,6 +274,11 @@ PRINT_LINE("tl_addr=%lx data_size=%d data=%lx\n", tl_addr, data_size, send_ox_p.
  
 					// 6. Send AccessAckData packet
 					send(sockfd, send_buffer, send_buffer_size, 0);
+
+					// 7. Wating for the Ack
+
+					// 8. Send Ack packet
+
 					break;
 				case A_PUTPARTIALDATA_OPCODE:
 					//TBD
@@ -326,6 +362,9 @@ int main(int argc, char ** argv)
 		goto close;
 	}
 
+	// Initialize memory
+	memset(mem_storage, 0, MEM_SIZE);
+
 	while(1) {
 		recv_size = recv(sockfd, recv_buffer, RECV_BUFFER_SIZE, 0);
 
@@ -333,7 +372,7 @@ int main(int argc, char ** argv)
 		if ( recv_size > 0 ) {
 			struct ethhdr *etherHeader = (struct ethhdr *) recv_buffer;
 			if (etherHeader->h_proto == OX_ETHERTYPE || etherHeader->h_proto == OX_ETHERTYPE_LOW)
-				printf("(DEBUG) Ethe_type (AAAA) packet received.\n");
+				printf("(DEBUG) Ethe_type (AAAA) packet received. (%d)\n", recv_size);
 			else
 				continue;
 		}
@@ -344,9 +383,7 @@ int main(int argc, char ** argv)
 #endif
 			
 		// Reconstruct packet into a struct
-		// TODO : to-be modified
-		//packet_to_ox_struct(recv_buffer, recv_size, &ox_p);
-		packet_to_ox_struct(recv_buffer, recv_size - 2, &ox_p);
+		packet_to_ox_struct(recv_buffer, recv_size, &ox_p);
 
 #if SIM
 		// Check Omnixtend message type from message_type field (OX 1.1)
@@ -398,6 +435,7 @@ int main(int argc, char ** argv)
 		}
 #else
 		connection_id = 0;
+		print_payload(recv_buffer, recv_size);
 		handle_normal_packet(sockfd, connection_id, &ox_p);
 #endif
 	}
