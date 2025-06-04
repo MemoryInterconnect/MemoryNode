@@ -2,6 +2,7 @@
 #include <endian.h>
 #include <string.h>
 #include <netinet/in.h>
+#include <stdlib.h>
 #include "ox_common.h"
 
 struct ox_connection ox_conn_list[NUM_CONNECTION];
@@ -249,20 +250,32 @@ int packet_to_ox_struct(char * recv_buffer, int recv_size, struct ox_packet_stru
 	tloe_hdr = be64toh(*(uint64_t*)recv_packet_tloe_hdr);
 	memcpy(&(ox_p->tloe_hdr), &tloe_hdr, sizeof(uint64_t));
 
-	// TileLink messages (8 bytes * n)
-	tl_msg_full_count_by_8bytes = (recv_size - sizeof(struct eth_header) - sizeof(struct tloe_header) - sizeof(uint64_t)/*mask*/)/sizeof(uint64_t);
-	ox_p->flit_cnt = tl_msg_full_count_by_8bytes;
-
-	// just pass the pointer of receive buffer
-	for (i = 0; i< tl_msg_full_count_by_8bytes; i++) {
-		uint64_t tmp_flits = *(uint64_t*)(recv_buffer + sizeof(struct eth_header) + sizeof(struct tloe_header) + sizeof(uint64_t)*i);
-
-		memcpy(&(ox_p->flits[i]), &tmp_flits, sizeof(uint64_t));
-	}
-
 	// TLoE frame mask (8 bytes)
 	memcpy(&tl_msg_mask, recv_buffer + recv_size - sizeof(tl_msg_mask), sizeof(tl_msg_mask));	
 	ox_p->tl_msg_mask = be64toh(tl_msg_mask);
+
+	if ( ox_p->flits ) {
+		free(ox_p->flits);
+		ox_p->flits = NULL;
+	}
+
+	if ( ox_p->tl_msg_mask ) {
+
+		// TileLink messages (8 bytes * n)
+		tl_msg_full_count_by_8bytes = (recv_size - sizeof(struct eth_header) - sizeof(struct tloe_header) - sizeof(uint64_t)/*mask*/)/sizeof(uint64_t);
+		ox_p->flit_cnt = tl_msg_full_count_by_8bytes;
+
+printf("ox_p->flit_cnt = %d\n", ox_p->flit_cnt);
+
+		ox_p->flits = malloc(tl_msg_full_count_by_8bytes*sizeof(uint64_t));
+
+		// just pass the pointer of receive buffer
+		for (i = 0; i< tl_msg_full_count_by_8bytes; i++) {
+			uint64_t tmp_flits = *(uint64_t*)(recv_buffer + sizeof(struct eth_header) + sizeof(struct tloe_header) + sizeof(uint64_t)*i);
+
+			memcpy(&(ox_p->flits[i]), &tmp_flits, sizeof(uint64_t));
+		}
+	}
 
 	return 0;
 }

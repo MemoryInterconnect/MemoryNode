@@ -11,9 +11,12 @@
 #include <sys/stat.h>
 #include <fcntl.h>
 #include <unistd.h>
+#include <errno.h>
 #include "ox_common.h"
 
-char mem_storage[MEM_SIZE];
+char * mem_storage = NULL;
+size_t mem_size = MEM_SIZE;
+uint64_t ox_start_offset = OX_START_ADDR;
 
 /**
  * @brief Print omnixtend header
@@ -111,23 +114,8 @@ void print_payload(char *data, int size) {
 void write_data(uint64_t tl_addr, uint32_t data_size, void * data) {
 	uint64_t mem_offset = 0;
 
-	mem_offset = (tl_addr - OX_START_ADDR) % MEM_SIZE;
+	mem_offset = (tl_addr - ox_start_offset) % mem_size;
 	memcpy(mem_storage + mem_offset, data, data_size);
-/*
-	printf("Write Data : addr-0x%llx, ", (unsigned long long)tl_addr); 
-    
-    if (data_size == 1) {
-        printf("data-%u\n", *(uint8_t *)data);
-    } else if (data_size == 2) {
-        printf("data-%u\n", *(uint16_t *)data);
-    } else if (data_size == 4) {
-        printf("data-%u\n", *(uint32_t *)data);
-    } else if (data_size == 8) {
-        printf("data-%lu\n", (unsigned long)*(uint64_t *)data);
-    } else {
-        printf("data-[unknown size]\n");
-    }
-*/
 }
 
 /**
@@ -136,25 +124,8 @@ void write_data(uint64_t tl_addr, uint32_t data_size, void * data) {
 void read_data(uint64_t tl_addr, uint32_t data_size, void * data) {
 	uint64_t mem_offset = 0;
 
-	mem_offset = (tl_addr - OX_START_ADDR) % MEM_SIZE;
+	mem_offset = (tl_addr - ox_start_offset) % mem_size;
 	memcpy(data, mem_storage + mem_offset, data_size);
-/*
-	printf("Read Data : addr-0x%llx, size-%d ", (unsigned long long)tl_addr, data_size); 
-
-	//printf(" size-%d, ", data_size);
-
-    if (data_size == 1) {
-        printf("data-%u\n", *(uint8_t *)data);
-    } else if (data_size == 2) {
-        printf("data-%u\n", *(uint16_t *)data);
-    } else if (data_size == 4) {
-        printf("data-%u\n", *(uint32_t *)data);
-    } else if (data_size == 8) {
-        printf("data-%lu\n", (unsigned long)*(uint64_t *)data);
-    } else {
-        printf("data-[unknown size]\n");
-    }
-*/
 }
 
 /**
@@ -321,6 +292,44 @@ int get_ox_msg_type(struct ox_packet_struct * ox_p)
 	return ox_p->tloe_hdr.msg_type;
 }
 
+static void print_usage(void) {
+    printf("Usage: %s -i <interface> -s <size>\n", "memorynode");
+    printf("Options:\n");
+    printf("  -i <interface>    Network interface to use (e.g., eth0)\n");
+    printf("  -s <size>         Memory size (e.g., 4G)\n");
+    printf("  -o <offset>       Offset of start address  (e.g., 0x200000000, default=0x0)\n");
+    printf("  --help            Display this help message\n");
+}
+
+/**
+ * @brief Parse size string (e.g., "4G") to bytes
+ */
+static uint64_t parse_size(const char *size_str) {
+    uint64_t size = 0;
+    char unit;
+    if (sscanf(size_str, "%lu%c", &size, &unit) != 2) {
+        return 0;
+    }
+    
+    switch (unit) {
+        case 'G':
+        case 'g':
+            size *= 1024 * 1024 * 1024;
+            break;
+        case 'M':
+        case 'm':
+            size *= 1024 * 1024;
+            break;
+        case 'K':
+        case 'k':
+            size *= 1024;
+            break;
+        default:
+            return 0;
+    }
+    return size;
+}
+
 /**
  * @brief main function
  */
@@ -332,13 +341,46 @@ int main(int argc, char ** argv)
 	struct sockaddr_ll saddr;
 	struct ox_packet_struct ox_p;
 	int connection_id = 0;
-#if SIM
-	int msg_type = 0;
-#endif
+	char *interface = NULL;
+	int opt;
 
-	if (argc <=1) {
-		printf("Usage: sudo %s [dev name], (ex sudo %s ens1)\n", argv[0], argv[0]);
-		return 0;
+	// Parse command line arguments
+	while ((opt = getopt(argc, argv, "i:s:o:h")) != -1) {
+		switch (opt) {
+			case 'i':
+				interface = optarg;
+				break;
+			case 's':
+				mem_size = parse_size(optarg);
+				if (mem_size == 0) {
+					printf("Error: Invalid size format. Use format like '4G', '512M', etc.\n");
+					return 1;
+				}
+				break;
+			case 'o':
+				ox_start_offset = strtoll(optarg, NULL, 0);
+				break;
+
+			case 'h':
+				print_usage();
+				return 0;
+			default:
+				print_usage();
+				return 1;
+		}
+	}
+
+	// Check required arguments
+	if (!interface) {
+		printf("Error: Interface (-i) is required\n");
+		print_usage();
+		return 1;
+	}
+
+	if (mem_size == 0) {
+		printf("Error: Memory size (-s) is required\n");
+		print_usage();
+		return 1;
 	}
 
 	sockfd = socket(AF_PACKET, SOCK_RAW, htons(ETH_P_ALL));
@@ -350,9 +392,9 @@ int main(int argc, char ** argv)
 	bzero(&saddr, sizeof(struct sockaddr_ll));
 	saddr.sll_family = AF_PACKET;
 	saddr.sll_protocol = htons(ETH_P_ALL);
-	saddr.sll_ifindex = if_nametoindex(argv[1]);
+	saddr.sll_ifindex = if_nametoindex(interface);
 
-	if ( saddr.sll_ifindex == 0 ) {
+	if (saddr.sll_ifindex == 0) {
 		perror("Socket bind error\n");
 		goto close;
 	}
@@ -363,7 +405,13 @@ int main(int argc, char ** argv)
 	}
 
 	// Initialize memory
-	memset(mem_storage, 0, MEM_SIZE);
+	printf("mem_size = %lu \n", mem_size);
+	mem_storage = (char *)aligned_alloc(4096, mem_size);
+	if ( mem_storage == NULL ) {
+		printf("Error - %s\n", strerror(errno));
+		goto close;
+	}
+	bzero((void*)mem_storage, mem_size);
 
 	while(1) {
 		recv_size = recv(sockfd, recv_buffer, RECV_BUFFER_SIZE, 0);
@@ -371,9 +419,7 @@ int main(int argc, char ** argv)
 		// Checking whether the packet is omnixtend one
 		if ( recv_size > 0 ) {
 			struct ethhdr *etherHeader = (struct ethhdr *) recv_buffer;
-			if (etherHeader->h_proto == OX_ETHERTYPE || etherHeader->h_proto == OX_ETHERTYPE_LOW)
-				printf("(DEBUG) Ethe_type (AAAA) packet received. (%d)\n", recv_size);
-			else
+			if (etherHeader->h_proto != OX_ETHERTYPE && etherHeader->h_proto != OX_ETHERTYPE_LOW)
 				continue;
 		}
 #if 0
@@ -387,7 +433,7 @@ int main(int argc, char ** argv)
 
 #if SIM
 		// Check Omnixtend message type from message_type field (OX 1.1)
-		msg_type = get_ox_msg_type(&ox_p);
+		int msg_type = get_ox_msg_type(&ox_p);
 
 		// TODO: Check credit or channel??
 
@@ -441,6 +487,7 @@ int main(int argc, char ** argv)
 	}
 close:
 	close(sockfd);
+	if (  mem_storage ) free(mem_storage);
 
 	return 0;
 }
