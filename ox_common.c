@@ -78,6 +78,7 @@ int create_new_connection(struct ox_packet_struct * ox_p) {
 				ox_conn_list[i].seq_num = 0;
 				ox_conn_list[i].seq_num_expected = ox_p->tloe_hdr.seq_num + 1;
 				ox_conn_list[i].credit = 10;
+				printf("New connection: %lx\n", be64toh(ox_p->eth_hdr.src_mac_addr)>>16);
 				//If creation success, return index.
 				return i;
 			}
