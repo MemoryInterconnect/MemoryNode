@@ -265,8 +265,6 @@ int packet_to_ox_struct(char * recv_buffer, int recv_size, struct ox_packet_stru
 		tl_msg_full_count_by_8bytes = (recv_size - sizeof(struct eth_header) - sizeof(struct tloe_header) - sizeof(uint64_t)/*mask*/)/sizeof(uint64_t);
 		ox_p->flit_cnt = tl_msg_full_count_by_8bytes;
 
-printf("ox_p->flit_cnt = %d\n", ox_p->flit_cnt);
-
 		ox_p->flits = malloc(tl_msg_full_count_by_8bytes*sizeof(uint64_t));
 
 		// just pass the pointer of receive buffer
